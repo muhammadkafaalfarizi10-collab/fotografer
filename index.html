@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Kafa fotoGrafer</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,300;1,400;1,600&family=Karla:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --black: #0a0a09;
+      --dark: #111110;
+      --panel: #161614;
+      --border: rgba(255,255,255,0.07);
+      --gold: #c9a96e;
+      --gold-dim: rgba(201,169,110,0.15);
+      --white: #f0ece4;
+      --muted: #6b6660;
+      --serif: 'Cormorant Garamond', Georgia, serif;
+      --sans: 'Karla', sans-serif;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--sans);
+      background: var(--black);
+      color: var(--white);
+      overflow-x: hidden;
+      cursor: none;
+    }
+
+    /* grain */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 300 300' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      opacity: 0.035; pointer-events: none; z-index: 9000;
+    }
+
+    /* cursor */
+    #cur { width:8px; height:8px; background:var(--gold); border-radius:50%; position:fixed; top:0; left:0; pointer-events:none; z-index:9999; transition:transform 0.08s; mix-blend-mode:screen; }
+    #cur-ring { width:32px; height:32px; border:1px solid rgba(201,169,110,0.5); border-radius:50%; position:fixed; top:0; left:0; pointer-events:none; z-index:9998; transition:width 0.2s, height 0.2s, border-color 0.2s; }
+
+    /* ── NAV ── */
+    nav {
+      position: fixed; top:0; left:0; right:0; z-index:500;
+      padding: 1.8rem 4%;
+      display: flex; align-items:center; justify-content:space-between;
+      transition: all 0.4s;
+    }
+    nav.scrolled {
+      background: rgba(10,10,9,0.92);
+      backdrop-filter: blur(12px);
+      padding: 1.2rem 4%;
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-logo {
+      font-family: var(--serif);
+      font-size: 1.25rem; font-weight: 600;
+      letter-spacing: 0.06em; color: var(--white);
+      text-decoration: none;
+    }
+    .nav-logo span { color: var(--gold); }
+    .nav-links { display:flex; gap:2.5rem; list-style:none; }
+    .nav-links a {
+      font-size: 0.72rem; font-weight: 500;
+      letter-spacing: 0.14em; text-transform: uppercase;
+      color: var(--muted); text-decoration: none;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover { color: var(--white); }
+    .nav-contact {
+      font-size: 0.72rem; font-weight: 500;
+      letter-spacing: 0.12em; text-transform: uppercase;
+      color: var(--gold); text-decoration: none;
+      border-bottom: 1px solid rgba(201,169,110,0.3);
+      padding-bottom: 2px; transition: border-color 0.2s;
+    }
+    .nav-contact:hover { border-color: var(--gold); }
+
+    /* ── HERO ── */
+    .hero {
+      height: 100vh; min-height: 640px;
+      display: flex; align-items: flex-end;
+      padding: 0 4% 6rem;
+      position: relative; overflow: hidden;
+    }
+    .hero-bg {
+      position: absolute; inset: 0;
+      background: linear-gradient(160deg, #1a1610 0%, #0a0a09 60%);
+    }
+    /* Decorative light leak */
+    .hero-bg::after {
+      content: '';
+      position: absolute; top:-20%; right:-10%;
+      width: 600px; height: 600px;
+      background: radial-gradient(ellipse, rgba(201,169,110,0.06) 0%, transparent 70%);
+      animation: breathe 8s ease-in-out infinite;
+    }
+    @keyframes breathe { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.6;transform:scale(1.1)} }
+
+    /* aperture ring decoration */
+    .aperture {
+      position: absolute; right: 8%; top: 50%; transform: translateY(-50%);
+      width: 380px; height: 380px;
+      border-radius: 50%;
+      border: 1px solid rgba(201,169,110,0.08);
+      display: flex; align-items:center; justify-content:center;
+      animation: rotate-slow 40s linear infinite;
+    }
+    .aperture::before {
+      content: '';
+      position: absolute; inset: 20px;
+      border-radius: 50%;
+      border: 1px solid rgba(201,169,110,0.05);
+    }
+    .aperture::after {
+      content: '';
+      position: absolute; inset: 40px;
+      border-radius: 50%;
+      border: 1px solid rgba(201,169,110,0.04);
+    }
+    @keyframes rotate-slow { to { transform: translateY(-50%) rotate(360deg); } }
+
+    .hero-content { position:relative; z-index:2; max-width: 700px; }
+    .hero-eyebrow {
+      display: flex; align-items:center; gap:1rem;
+      margin-bottom: 1.5rem;
+      opacity:0; animation: slideUp 0.8s 0.2s forwards;
+    }
+    .hero-eyebrow-line { width:40px; height:1px; background:var(--gold); }
+    .hero-eyebrow span {
+      font-size: 0.68rem; letter-spacing: 0.2em;
+      text-transform: uppercase; color: var(--gold);
+      font-weight: 500;
+    }
+    .hero h1 {
+      font-family: var(--serif);
+      font-size: clamp(4rem, 10vw, 8rem);
+      font-weight: 300; line-height: 0.9;
+      letter-spacing: -0.02em;
+      color: var(--white);
+      opacity:0; animation: slideUp 0.9s 0.3s forwards;
+    }
+    .hero h1 em { font-style: italic; color: var(--gold); display:block; }
+    .hero-sub {
+      margin-top: 2rem;
+      font-size: 0.9rem; color: var(--muted);
+      line-height: 1.8; max-width: 380px; font-weight: 300;
+      opacity:0; animation: slideUp 0.9s 0.5s forwards;
+    }
+    .hero-btns {
+      display:flex; gap:1rem; margin-top:2.5rem;
+      opacity:0; animation: slideUp 0.9s 0.7s forwards;
+    }
+    .btn-gold {
+      padding: 0.85rem 2.2rem;
+      background: var(--gold); color: var(--black);
+      font-family: var(--sans); font-size:0.75rem;
+      font-weight: 600; letter-spacing:0.12em; text-transform:uppercase;
+      text-decoration: none; border:none; cursor:pointer;
+      transition: all 0.25s;
+    }
+    .btn-gold:hover { background: #d4b47e; transform: translateY(-2px); }
+    .btn-ghost-w {
+      padding: 0.85rem 2.2rem;
+      background: transparent; color: var(--white);
+      font-family: var(--sans); font-size:0.75rem;
+      font-weight: 500; letter-spacing:0.1em; text-transform:uppercase;
+      text-decoration: none; border:1px solid var(--border); cursor:pointer;
+      transition: all 0.25s;
+    }
+    .btn-ghost-w:hover { border-color: rgba(255,255,255,0.2); }
+
+    /* hero scroll indicator */
+    .scroll-hint {
+      position: absolute; bottom:2.5rem; left:50%; transform:translateX(-50%);
+      display:flex; flex-direction:column; align-items:center; gap:0.5rem;
+      opacity:0; animation: fadeIn 1s 1.2s forwards;
+    }
+    .scroll-hint span { font-size:0.62rem; letter-spacing:0.18em; text-transform:uppercase; color:var(--muted); }
+    .scroll-line { width:1px; height:40px; background:linear-gradient(to bottom, var(--muted), transparent); animation: scrollAnim 2s ease infinite; }
+    @keyframes scrollAnim { 0%{transform:scaleY(0);transform-origin:top} 50%{transform:scaleY(1);transform-origin:top} 51%{transform:scaleY(1);transform-origin:bottom} 100%{transform:scaleY(0);transform-origin:bottom} }
+
+    @keyframes slideUp { from{opacity:0;transform:translateY(30px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+
+    /* ── ABOUT ── */
+    .about {
+      display: grid; grid-template-columns: 1fr 1fr;
+      min-height: 80vh;
+    }
+    .about-img {
+      background: var(--panel);
+      position: relative; overflow:hidden;
+      min-height: 500px;
+      display:flex; align-items:center; justify-content:center;
+    }
+    .about-img-placeholder {
+      display:flex; flex-direction:column; align-items:center; gap:1rem;
+    }
+    .camera-icon {
+      font-size: 3rem; opacity:0.2;
+    }
+    .about-img-label {
+      font-size: 0.65rem; letter-spacing:0.16em;
+      text-transform:uppercase; color:var(--muted);
+    }
+    .about-img::after {
+      content: '';
+      position: absolute; inset:0;
+      background: linear-gradient(135deg, transparent 60%, rgba(201,169,110,0.05));
+    }
+    /* frame corner decorations */
+    .about-img::before {
+      content:'';
+      position:absolute; top:20px; left:20px;
+      width:40px; height:40px;
+      border-top:1px solid rgba(201,169,110,0.3);
+      border-left:1px solid rgba(201,169,110,0.3);
+      z-index:1;
+    }
+    .about-text-panel {
+      padding: 6rem 5rem;
+      background: var(--dark);
+      display:flex; flex-direction:column; justify-content:center;
+    }
+    .about-tag {
+      font-size: 0.65rem; letter-spacing:0.2em; text-transform:uppercase;
+      color:var(--gold); margin-bottom:2rem;
+      display:flex; align-items:center; gap:0.8rem;
+    }
+    .about-tag::before { content:''; width:30px; height:1px; background:var(--gold); }
+    .about-text-panel h2 {
+      font-family: var(--serif);
+      font-size: clamp(2rem, 3.5vw, 3rem);
+      font-weight: 400; line-height:1.15;
+      letter-spacing:-0.01em; margin-bottom:1.8rem;
+    }
+    .about-text-panel h2 em { font-style:italic; color:var(--gold); }
+    .about-text-panel p {
+      font-size:0.92rem; color:var(--muted);
+      line-height:1.85; font-weight:300; margin-bottom:1rem;
+    }
+    .about-stats {
+      display:flex; gap:2.5rem; margin-top:2.5rem;
+      padding-top:2rem; border-top:1px solid var(--border);
+    }
+    .astat-num {
+      font-family:var(--serif); font-size:2.2rem; font-weight:600;
+      color:var(--white); letter-spacing:-0.03em; line-height:1;
+    }
+    .astat-label { font-size:0.68rem; color:var(--muted); letter-spacing:0.1em; text-transform:uppercase; margin-top:0.3rem; }
+
+    /* ── PORTFOLIO ── */
+    .portfolio { padding: 6rem 4%; background: var(--black); }
+    .section-header {
+      display:flex; justify-content:space-between; align-items:flex-end;
+      margin-bottom:3.5rem;
+    }
+    .section-kicker {
+      font-size:0.65rem; letter-spacing:0.2em; text-transform:uppercase;
+      color:var(--gold); margin-bottom:0.8rem;
+      display:flex; align-items:center; gap:0.8rem;
+    }
+    .section-kicker::before { content:''; width:30px; height:1px; background:var(--gold); }
+    .section-title {
+      font-family:var(--serif);
+      font-size: clamp(1.8rem, 3vw, 2.8rem);
+      font-weight:400; letter-spacing:-0.02em; line-height:1.1;
+    }
+    .view-all {
+      font-size:0.72rem; letter-spacing:0.12em; text-transform:uppercase;
+      color:var(--gold); text-decoration:none;
+      border-bottom:1px solid rgba(201,169,110,0.3); padding-bottom:2px;
+      transition: border-color 0.2s; white-space:nowrap;
+    }
+    .view-all:hover { border-color:var(--gold); }
+
+    /* masonry-ish grid */
+    .gallery-grid {
+      display:grid;
+      grid-template-columns: repeat(12, 1fr);
+      grid-template-rows: auto;
+      gap:0.8rem;
+    }
+    .gal-item {
+      background:var(--panel);
+      overflow:hidden; position:relative;
+      cursor:pointer;
+    }
+    .gal-item:hover .gal-overlay { opacity:1; }
+    .gal-item:hover .gal-img-bg { transform:scale(1.04); }
+
+    .gal-item:nth-child(1) { grid-column: span 7; grid-row: span 2; aspect-ratio:4/3; }
+    .gal-item:nth-child(2) { grid-column: span 5; aspect-ratio:4/3; }
+    .gal-item:nth-child(3) { grid-column: span 5; aspect-ratio:4/3; }
+    .gal-item:nth-child(4) { grid-column: span 4; aspect-ratio:3/4; }
+    .gal-item:nth-child(5) { grid-column: span 4; aspect-ratio:3/4; }
+    .gal-item:nth-child(6) { grid-column: span 4; aspect-ratio:3/4; }
+
+    .gal-img-bg {
+      width:100%; height:100%;
+      background: var(--panel);
+      transition: transform 0.6s ease;
+      position:relative;
+      display:flex; align-items:center; justify-content:center;
+    }
+
+    /* placeholder gradients per card */
+    .gal-item:nth-child(1) .gal-img-bg { background:linear-gradient(135deg,#1a1814,#2a2418); }
+    .gal-item:nth-child(2) .gal-img-bg { background:linear-gradient(135deg,#141820,#1a2028); }
+    .gal-item:nth-child(3) .gal-img-bg { background:linear-gradient(135deg,#181418,#201820); }
+    .gal-item:nth-child(4) .gal-img-bg { background:linear-gradient(135deg,#141a14,#182018); }
+    .gal-item:nth-child(5) .gal-img-bg { background:linear-gradient(135deg,#1a1410,#241c14); }
+    .gal-item:nth-child(6) .gal-img-bg { background:linear-gradient(135deg,#101418,#141820); }
+
+    .gal-placeholder {
+      display:flex; flex-direction:column; align-items:center; gap:0.5rem;
+      opacity:0.25;
+    }
+    .gal-placeholder-icon { font-size:1.5rem; }
+    .gal-placeholder-text { font-size:0.6rem; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); }
+
+    .gal-overlay {
+      position:absolute; inset:0;
+      background:linear-gradient(to top, rgba(10,10,9,0.85) 0%, transparent 50%);
+      opacity:0; transition:opacity 0.4s;
+      display:flex; flex-direction:column; justify-content:flex-end;
+      padding:1.5rem;
+    }
+    .gal-cat { font-size:0.62rem; letter-spacing:0.14em; text-transform:uppercase; color:var(--gold); margin-bottom:0.3rem; }
+    .gal-title { font-family:var(--serif); font-size:1.1rem; font-weight:600; color:var(--white); }
+
+    /* ── SERVICES ── */
+    .services { padding:6rem 4%; background:var(--dark); }
+    .services-grid {
+      display:grid; grid-template-columns:repeat(3,1fr);
+      gap:1px; background:var(--border); margin-top:3.5rem;
+      border:1px solid var(--border);
+    }
+    .svc-card {
+      background:var(--dark); padding:3rem 2.5rem;
+      transition: background 0.3s;
+      position:relative; overflow:hidden;
+    }
+    .svc-card::before {
+      content:''; position:absolute; top:0; left:0; right:0; height:1px;
+      background:linear-gradient(90deg,transparent,var(--gold),transparent);
+      opacity:0; transition:opacity 0.3s;
+    }
+    .svc-card:hover { background:#131311; }
+    .svc-card:hover::before { opacity:1; }
+    .svc-num {
+      font-family:var(--serif); font-size:3rem; font-weight:300;
+      color:rgba(201,169,110,0.12); line-height:1; margin-bottom:1.5rem;
+    }
+    .svc-title {
+      font-family:var(--serif); font-size:1.3rem; font-weight:600;
+      margin-bottom:1rem; letter-spacing:-0.01em;
+    }
+    .svc-desc { font-size:0.85rem; color:var(--muted); line-height:1.75; font-weight:300; }
+    .svc-price {
+      margin-top:1.5rem; padding-top:1.5rem; border-top:1px solid var(--border);
+      font-size:0.72rem; letter-spacing:0.08em; text-transform:uppercase;
+      color:var(--gold);
+    }
+
+    /* ── PROCESS ── */
+    .process { padding:6rem 4%; background:var(--black); }
+    .process-steps {
+      display:grid; grid-template-columns:repeat(4,1fr);
+      gap:0; margin-top:3.5rem;
+      border:1px solid var(--border);
+    }
+    .proc-step {
+      padding:2.5rem 2rem;
+      border-right:1px solid var(--border);
+      position:relative;
+    }
+    .proc-step:last-child { border-right:none; }
+    .proc-num {
+      font-family:var(--serif); font-size:0.75rem; font-style:italic;
+      color:var(--gold); margin-bottom:1.2rem;
+    }
+    .proc-title {
+      font-family:var(--serif); font-size:1.1rem; font-weight:600;
+      margin-bottom:0.8rem;
+    }
+    .proc-desc { font-size:0.82rem; color:var(--muted); line-height:1.7; font-weight:300; }
+
+    /* ── TESTIMONIALS ── */
+    .testi { padding:6rem 4%; background:var(--dark); }
+    .testi-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:1px; background:var(--border); border:1px solid var(--border); margin-top:3.5rem; }
+    .testi-card {
+      background:var(--dark); padding:3rem;
+      transition: background 0.3s;
+    }
+    .testi-card:hover { background:#131311; }
+    .testi-quote {
+      font-family:var(--serif); font-size:1.05rem; font-style:italic;
+      line-height:1.75; color:var(--white); font-weight:300;
+      margin-bottom:2rem;
+    }
+    .testi-quote::before { content:'"'; font-size:3rem; color:var(--gold); opacity:0.3; line-height:0; vertical-align:-1.2rem; margin-right:0.2rem; }
+    .testi-author { display:flex; align-items:center; gap:1rem; }
+    .testi-av {
+      width:40px; height:40px; border-radius:50%;
+      background:var(--gold-dim); border:1px solid rgba(201,169,110,0.2);
+      display:flex; align-items:center; justify-content:center;
+      font-family:var(--serif); font-weight:600; font-size:0.9rem; color:var(--gold);
+    }
+    .testi-name { font-weight:500; font-size:0.88rem; }
+    .testi-role { font-size:0.72rem; color:var(--muted); margin-top:0.15rem; }
+    .testi-stars { color:var(--gold); font-size:0.65rem; letter-spacing:2px; margin-bottom:1.2rem; }
+
+    /* ── CONTACT ── */
+    .contact {
+      padding:8rem 4%;
+      background:var(--black);
+      display:grid; grid-template-columns:1fr 1fr;
+      gap:6rem; align-items:center;
+    }
+    .contact-left h2 {
+      font-family:var(--serif);
+      font-size:clamp(2.5rem,5vw,4.5rem);
+      font-weight:300; line-height:1;
+      letter-spacing:-0.03em; margin-bottom:1.5rem;
+    }
+    .contact-left h2 em { font-style:italic; color:var(--gold); display:block; }
+    .contact-left p { font-size:0.9rem; color:var(--muted); line-height:1.8; font-weight:300; }
+    .contact-details { margin-top:3rem; display:flex; flex-direction:column; gap:0; }
+    .cdet {
+      display:flex; justify-content:space-between; align-items:center;
+      padding:1.2rem 0; border-bottom:1px solid var(--border);
+      text-decoration:none; color:var(--white); transition:padding-left 0.2s;
+    }
+    .cdet:first-child { border-top:1px solid var(--border); }
+    .cdet:hover { padding-left:0.5rem; }
+    .cdet:hover .cdet-arrow { color:var(--gold); }
+    .cdet-type { font-size:0.65rem; letter-spacing:0.14em; text-transform:uppercase; color:var(--muted); }
+    .cdet-val { font-family:var(--serif); font-size:1rem; font-weight:600; }
+    .cdet-arrow { color:var(--muted); transition:color 0.2s; }
+    .contact-form { display:flex; flex-direction:column; gap:1rem; }
+    .form-group { display:flex; flex-direction:column; gap:0.4rem; }
+    .form-label { font-size:0.65rem; letter-spacing:0.14em; text-transform:uppercase; color:var(--muted); }
+    .form-input {
+      background:var(--panel); border:1px solid var(--border);
+      padding:0.9rem 1rem; color:var(--white);
+      font-family:var(--sans); font-size:0.88rem; font-weight:300;
+      outline:none; transition:border-color 0.2s;
+    }
+    .form-input:focus { border-color:rgba(201,169,110,0.4); }
+    .form-input::placeholder { color:var(--muted); }
+    textarea.form-input { resize:vertical; min-height:120px; }
+    .form-submit {
+      padding:1rem 2.5rem; background:var(--gold);
+      color:var(--black); font-family:var(--sans);
+      font-size:0.75rem; font-weight:600; letter-spacing:0.12em;
+      text-transform:uppercase; border:none; cursor:pointer;
+      transition:all 0.25s; margin-top:0.5rem; align-self:flex-start;
+    }
+    .form-submit:hover { background:#d4b47e; transform:translateY(-2px); }
+
+    /* ── FOOTER ── */
+    footer {
+      padding:2.5rem 4%;
+      border-top:1px solid var(--border);
+      display:flex; justify-content:space-between; align-items:center;
+    }
+    .footer-logo { font-family:var(--serif); font-size:1rem; font-weight:600; letter-spacing:0.06em; }
+    .footer-logo span { color:var(--gold); }
+    .footer-links { display:flex; gap:2rem; }
+    .footer-links a { font-size:0.7rem; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted); text-decoration:none; transition:color 0.2s; }
+    .footer-links a:hover { color:var(--white); }
+    .footer-copy { font-size:0.7rem; color:var(--muted); }
+
+    /* scroll reveal */
+    .reveal { opacity:0; transform:translateY(28px); transition:opacity 0.7s ease, transform 0.7s ease; }
+    .reveal.visible { opacity:1; transform:none; }
+
+    /* responsive */
+    @media(max-width:900px){
+      .about { grid-template-columns:1fr; }
+      .about-img { min-height:300px; }
+      .about-text-panel { padding:3rem 2rem; }
+      .services-grid, .process-steps { grid-template-columns:1fr; }
+      .testi-grid { grid-template-columns:1fr; }
+      .contact { grid-template-columns:1fr; gap:3rem; }
+      .gallery-grid { grid-template-columns:1fr 1fr; }
+      .gal-item:nth-child(n) { grid-column:span 1; aspect-ratio:4/3; }
+      nav .nav-links, nav .nav-contact { display:none; }
+      footer { flex-direction:column; gap:1.2rem; text-align:center; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="cur"></div>
+<div id="cur-ring"></div>
+
+<!-- NAV -->
+<nav id="nav">
+  <a href="#" class="nav-logo">Kafa<span>.</span>Alfarizi</a>
+  <ul class="nav-links">
+    <li><a href="#portfolio">Portfolio</a></li>
+    <li><a href="#layanan">Layanan</a></li>
+    <li><a href="#proses">Proses</a></li>
+    <li><a href="#testimoni">Testimoni</a></li>
+  </ul>
+  <a href="#kontak" class="nav-contact">Pesan Sesi →</a>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-bg"></div>
+  <div class="aperture"></div>
+  <div class="hero-content">
+    <div class="hero-eyebrow">
+      <div class="hero-eyebrow-line"></div>
+      <span>Fotografer Profesional · Jatim</span>
+    </div>
+    <h1>Kafa<br><em>Alfarizi</em></h1>
+    <p class="hero-sub">
+      Mengabadikan momen paling berharga dalam hidupmu — pernikahan, portrait, komersial — dengan sentuhan artistik yang timeless.
+    </p>
+    <div class="hero-btns">
+      <a href="#portfolio" class="btn-gold">Lihat Portfolio</a>
+      <a href="#kontak" class="btn-ghost-w">Pesan Sesi</a>
+    </div>
+  </div>
+  <div class="scroll-hint">
+    <span>Scroll</span>
+    <div class="scroll-line"></div>
+  </div>
+</section>
+
+<!-- ABOUT -->
+<div class="about reveal">
+  <div class="about-img">
+    <div class="about-img-placeholder">
+      <div class="camera-icon">📷</div>
+      <div class="about-img-label">Foto Fotografer</div>
+    </div>
+  </div>
+  <div class="about-text-panel">
+    <div class="about-tag">Tentang Saya</div>
+    <h2>Setiap cahaya<br>punya <em>cerita</em>.</h2>
+    <p>Saya Kafa, fotografer profesional dengan lebih dari 8 tahun pengalaman mengabadikan momen-momen berharga. Dari pernikahan intim hingga kampanye komersial skala besar.</p>
+    <p>Bagi saya, fotografi bukan sekadar memotret — ini tentang merasakan emosi di balik setiap frame, dan mengabadikannya sebelum menghilang selamanya.</p>
+    <div class="about-stats">
+      <div>
+        <div class="astat-num">8+</div>
+        <div class="astat-label">Tahun pengalaman</div>
+      </div>
+      <div>
+        <div class="astat-num">320+</div>
+        <div class="astat-label">Klien bahagia</div>
+      </div>
+      <div>
+        <div class="astat-num">15</div>
+        <div class="astat-label">Penghargaan</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PORTFOLIO -->
+<section class="portfolio" id="portfolio">
+  <div class="section-header reveal">
+    <div>
+      <div class="section-kicker">Portfolio</div>
+      <h2 class="section-title">Karya Pilihan</h2>
+    </div>
+    <a href="#" class="view-all">Lihat Semua →</a>
+  </div>
+  <div class="gallery-grid reveal">
+    <div class="gal-item">
+      <div class="gal-img-bg">
+        <div class="gal-placeholder"><div class="gal-placeholder-icon">🌅</div><div class="gal-placeholder-text">Foto Pernikahan</div></div>
+      </div>
+      <div class="gal-overlay"><div class="gal-cat">Wedding</div><div class="gal-title">Dinda & Bima — Bali</div></div>
+    </div>
+    <div class="gal-item">
+      <div class="gal-img-bg">
+        <div class="gal-placeholder"><div class="gal-placeholder-icon">👤</div><div class="gal-placeholder-text">Portrait</div></div>
+      </div>
+      <div class="gal-overlay"><div class="gal-cat">Portrait</div><div class="gal-title">Editorial — Vogue ID</div></div>
+    </div>
+    <div class="gal-item">
+      <div class="gal-img-bg">
+        <div class="gal-placeholder"><div class="gal-placeholder-icon">🏙️</div><div class="gal-placeholder-text">Komersial</div></div>
+      </div>
+      <div class="gal-overlay"><div class="gal-cat">Komersial</div><div class="gal-title">Brand Campaign — Nike ID</div></div>
+    </div>
+    <div class="gal-item">
+      <div class="gal-img-bg">
+        <div class="gal-placeholder"><div class="gal-placeholder-icon">💍</div><div class="gal-placeholder-text">Engagement</div></div>
+      </div>
+      <div class="gal-overlay"><div class="gal-cat">Engagement</div><div class="gal-title">Sari & Andi</div></div>
+    </div>
+    <div class="gal-item">
+      <div class="gal-img-bg">
+        <div class="gal-placeholder"><div class="gal-placeholder-icon">🌿</div><div class="gal-placeholder-text">Lifestyle</div></div>
+      </div>
+      <div class="gal-overlay"><div class="gal-cat">Lifestyle</div><div class="gal-title">Morning Stories</div></div>
+    </div>
+    <div class="gal-item">
+      <div class="gal-img-bg">
+        <div class="gal-placeholder"><div class="gal-placeholder-icon">✨</div><div class="gal-placeholder-text">Fashion</div></div>
+      </div>
+      <div class="gal-overlay"><div class="gal-cat">Fashion</div><div class="gal-title">SS Collection 2025</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- SERVICES -->
+<section class="services" id="layanan">
+  <div class="section-header reveal">
+    <div>
+      <div class="section-kicker">Layanan</div>
+      <h2 class="section-title">Apa yang Saya Tawarkan</h2>
+    </div>
+  </div>
+  <div class="services-grid reveal">
+    <div class="svc-card">
+      <div class="svc-num">01</div>
+      <div class="svc-title">Fotografi Pernikahan</div>
+      <p class="svc-desc">Mengabadikan setiap momen sakral pernikahan Anda — dari persiapan hingga resepsi — dengan pendekatan dokumenter yang natural dan emosional.</p>
+      <div class="svc-price">Mulai dari Rp 8.000.000</div>
+    </div>
+    <div class="svc-card">
+      <div class="svc-num">02</div>
+      <div class="svc-title">Portrait & Editorial</div>
+      <p class="svc-desc">Sesi portrait personal, professional headshot, atau editorial fashion yang menonjolkan kepribadian dan karakter unik Anda.</p>
+      <div class="svc-price">Mulai dari Rp 2.500.000</div>
+    </div>
+    <div class="svc-card">
+      <div class="svc-num">03</div>
+      <div class="svc-title">Fotografi Komersial</div>
+      <p class="svc-desc">Campaign brand, produk, dan konten visual untuk kebutuhan pemasaran bisnis Anda dengan kualitas publikasi tinggi.</p>
+      <div class="svc-price">Mulai dari Rp 5.000.000</div>
+    </div>
+  </div>
+</section>
+
+<!-- PROCESS -->
+<section class="process" id="proses">
+  <div class="section-header reveal">
+    <div>
+      <div class="section-kicker">Proses Kerja</div>
+      <h2 class="section-title">Bagaimana Kita Bekerja</h2>
+    </div>
+  </div>
+  <div class="process-steps reveal">
+    <div class="proc-step">
+      <div class="proc-num">— 01</div>
+      <div class="proc-title">Konsultasi</div>
+      <p class="proc-desc">Kita ngobrol dulu tentang visi, kebutuhan, dan ekspektasi Anda. Gratis, tanpa komitmen.</p>
+    </div>
+    <div class="proc-step">
+      <div class="proc-num">— 02</div>
+      <div class="proc-title">Perencanaan</div>
+      <p class="proc-desc">Saya menyusun shot list, lokasi, dan timeline untuk memastikan sesi berjalan sempurna.</p>
+    </div>
+    <div class="proc-step">
+      <div class="proc-num">— 03</div>
+      <div class="proc-title">Pemotretan</div>
+      <p class="proc-desc">Hari yang ditunggu! Saya bekerja dengan santai agar Anda merasa nyaman dan alami di depan kamera.</p>
+    </div>
+    <div class="proc-step">
+      <div class="proc-num">— 04</div>
+      <div class="proc-title">Pengiriman</div>
+      <p class="proc-desc">Foto hasil editing dikirim dalam 7–14 hari kerja via galeri online privat berkualitas tinggi.</p>
+    </div>
+  </div>
+</section>
+
+<!-- TESTIMONIALS -->
+<section class="testi" id="testimoni">
+  <div class="section-header reveal">
+    <div>
+      <div class="section-kicker">Testimoni</div>
+      <h2 class="section-title">Kata Mereka</h2>
+    </div>
+  </div>
+  <div class="testi-grid reveal">
+    <div class="testi-card">
+      <div class="testi-stars">★★★★★</div>
+      <p class="testi-quote">Kafa berhasil mengabadikan momen pernikahan kami dengan cara yang kami tidak pernah bayangkan. Setiap foto bercerita, setiap frame penuh emosi. Kami menangis saat melihat hasilnya.</p>
+      <div class="testi-author">
+        <div class="testi-av">DA</div>
+        <div><div class="testi-name">Dinda & Arga</div><div class="testi-role">Klien Pernikahan · Bali, 2024</div></div>
+      </div>
+    </div>
+    <div class="testi-card">
+      <div class="testi-stars">★★★★★</div>
+      <p class="testi-quote">Sebagai brand manager, saya butuh fotografer yang paham estetika dan brief dengan cepat. Kafa melampaui ekspektasi kami — hasil kerjanya langsung kami pakai untuk kampanye nasional.</p>
+      <div class="testi-author">
+        <div class="testi-av">SR</div>
+        <div><div class="testi-name">Sarah Ratna</div><div class="testi-role">Brand Manager · PT Maju Bersama</div></div>
+      </div>
+    </div>
+    <div class="testi-card">
+      <div class="testi-stars">★★★★★</div>
+      <p class="testi-quote">Sesi portrait bareng Kafa adalah pengalaman yang menyenangkan. Dia tahu cara membuat orang nyaman sehingga hasil fotonya terasa sangat natural dan apa adanya.</p>
+      <div class="testi-author">
+        <div class="testi-av">MF</div>
+        <div><div class="testi-name">Maya Fitriani</div><div class="testi-role">Klien Portrait · Jakarta, 2025</div></div>
+      </div>
+    </div>
+    <div class="testi-card">
+      <div class="testi-stars">★★★★★</div>
+      <p class="testi-quote">Kami mempercayakan dokumentasi engagement kami kepada Kafa dan tidak menyesal sama sekali. Profesional, kreatif, dan sangat memahami apa yang kami inginkan tanpa banyak arahan.</p>
+      <div class="testi-author">
+        <div class="testi-av">BP</div>
+        <div><div class="testi-name">Bimo & Putri</div><div class="testi-role">Klien Engagement · Yogyakarta, 2025</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CONTACT -->
+<section class="contact" id="kontak">
+  <div class="reveal">
+    <div class="about-tag">Hubungi Saya</div>
+    <h2 class="contact-left">Mari kita ciptakan sesuatu yang <em>indah.</em></h2>
+    <p style="font-size:0.9rem;color:var(--muted);line-height:1.8;font-weight:300;">Siap untuk sesi foto? Ceritakan momen apa yang ingin Anda abadikan — saya dengan senang hati akan membantu mewujudkannya.</p>
+    <div class="contact-details">
+      <a href="mailto:kafa@foto.com" class="cdet">
+        <div><div class="cdet-type">Email</div><div class="cdet-val">kafa@foto.com</div></div>
+        <span class="cdet-arrow">→</span>
+      </a>
+      <a href="https://wa.me/6281234567890" class="cdet">
+        <div><div class="cdet-type">WhatsApp</div><div class="cdet-val">+62 812-3456-7890</div></div>
+        <span class="cdet-arrow">→</span>
+      </a>
+      <a href="#" class="cdet">
+        <div><div class="cdet-type">Instagram</div><div class="cdet-val">@kafafoto</div></div>
+        <span class="cdet-arrow">→</span>
+      </a>
+    </div>
+  </div>
+  <div class="reveal">
+    <div class="contact-form">
+      <div class="form-group">
+        <label class="form-label">Nama Lengkap</label>
+        <input type="text" class="form-input" placeholder="Nama kamu"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input type="email" class="form-input" placeholder="email@kamu.com"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Jenis Sesi</label>
+        <select class="form-input" style="appearance:none;">
+          <option value="" disabled selected>Pilih layanan...</option>
+          <option>Fotografi Pernikahan</option>
+          <option>Portrait & Editorial</option>
+          <option>Fotografi Komersial</option>
+          <option>Lainnya</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Pesan</label>
+        <textarea class="form-input" placeholder="Ceritakan momen yang ingin diabadikan..."></textarea>
+      </div>
+      <button class="form-submit">Kirim Pesan →</button>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-logo">Kafa<span>.</span>Foto</div>
+  <div class="footer-links">
+    <a href="#">Instagram</a>
+    <a href="#">Behance</a>
+    <a href="#">LinkedIn</a>
+  </div>
+  <div class="footer-copy">© 2026 Raka Satria Photography</div>
+</footer>
+
+<script>
+  // Cursor
+  const cur = document.getElementById('cur');
+  const ring = document.getElementById('cur-ring');
+  let mx=0,my=0,rx=0,ry=0;
+  document.addEventListener('mousemove', e=>{ mx=e.clientX; my=e.clientY; });
+  (function anim(){ cur.style.transform=`translate(${mx-4}px,${my-4}px)`; rx+=(mx-rx)*0.1; ry+=(my-ry)*0.1; ring.style.transform=`translate(${rx-16}px,${ry-16}px)`; requestAnimationFrame(anim); })();
+  document.querySelectorAll('a,button,.gal-item,.svc-card').forEach(el=>{
+    el.addEventListener('mouseenter',()=>{ ring.style.width='50px'; ring.style.height='50px'; ring.style.borderColor='rgba(201,169,110,0.7)'; });
+    el.addEventListener('mouseleave',()=>{ ring.style.width='32px'; ring.style.height='32px'; ring.style.borderColor='rgba(201,169,110,0.5)'; });
+  });
+
+  // Nav scroll
+  const nav = document.getElementById('nav');
+  window.addEventListener('scroll',()=>{ nav.classList.toggle('scrolled', window.scrollY>60); });
+
+  // Scroll reveal
+  const obs = new IntersectionObserver(entries=>{
+    entries.forEach(e=>{ if(e.isIntersecting) e.target.classList.add('visible'); });
+  }, {threshold:0.08});
+  document.querySelectorAll('.reveal').forEach(el=>obs.observe(el));
+
+  // Form submit
+  document.querySelector('.form-submit').addEventListener('click', function(){
+    this.textContent = 'Terkirim! ✓';
+    this.style.background = '#4a7c59';
+    setTimeout(()=>{ this.textContent='Kirim Pesan →'; this.style.background=''; }, 3000);
+  });
+</script>
+</body>
+</html>
